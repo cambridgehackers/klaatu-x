@@ -42,7 +42,16 @@ if [ ! -e sources/patched ] ; then
     patch -p0 <$SCRIPT_DIR/cross_android.patch
     touch sources/patched
 fi
+if [ ! -e sources/xorg/git/xorg/xserver/hw/xfree86/android ] ; then
+    mkdir sources/xorg/git/xorg/xserver/hw/xfree86/android
+    ln -s $SCRIPT_DIR/android/* sources/xorg/git/xorg/xserver/hw/xfree86/android/
+fi
 PATH=`pwd`/aroot/toolchain/bin:$PATH \
     DISCIMAGE=`pwd`/out \
     CROSS_COMPILE=arm-linux- \
     jhbuild -f $SCRIPT_DIR/crossx.jhbuild build xserver
+#clean out unused files
+rm -rf out/usr/share/man
+rm -rf out/usr/share/doc
+rm -rf out/usr/share/X11/locale
+rm -rf out/usr/lib/python2.6

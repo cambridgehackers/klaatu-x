@@ -49,94 +49,21 @@ diff -aur sources/xorg/git/xorg/lib/libXfont/src/util/fontxlfd.c.001 sources/xor
  #define NO_LOCALE
  #endif
  #ifndef NO_LOCALE
-diff -aur sources/xorg/git/xorg/xserver/hw/xfree86/fbdevhw/fbdevhw.c.001 sources/xorg/git/xorg/xserver/hw/xfree86/fbdevhw/fbdevhw.c
---- sources/xorg/git/xorg/xserver/hw/xfree86/fbdevhw/fbdevhw.c.001	2013-02-10 20:04:09.282377087 -0500
-+++ sources/xorg/git/xorg/xserver/hw/xfree86/fbdevhw/fbdevhw.c	2013-02-10 20:09:10.272379772 -0500
-@@ -8,9 +8,6 @@
- #include "xf86.h"
- #include "xf86_OSproc.h"
+diff -aur sources/xorg/git/xorg/xserver/hw/xfree86/Makefile.am.orig sources/xorg/git/xorg/xserver/hw/xfree86/Makefile.am
+--- sources/xorg/git/xorg/xserver/hw/xfree86/Makefile.am.orig	2013-03-09 19:24:19.000000000 -0500
++++ sources/xorg/git/xorg/xserver/hw/xfree86/Makefile.am	2013-03-09 19:26:11.502374978 -0500
+@@ -28,9 +28,9 @@
+ SUBDIRS = common ddc x86emu $(INT10_SUBDIR) os-support parser \
+ 	  ramdac $(VGAHW_SUBDIR) loader modes $(DRI_SUBDIR) \
+ 	  $(DRI2_SUBDIR) . $(VBE_SUBDIR) i2c dixmods \
+-	  fbdevhw shadowfb exa $(XF86UTILS_SUBDIR) doc man
++	  android shadowfb exa $(XF86UTILS_SUBDIR) doc man
  
--/* pci stuff */
--#include "xf86Pci.h"
--
- #include "xf86cmap.h"
- 
- #include "fbdevhw.h"
-@@ -251,54 +248,6 @@
- /* -------------------------------------------------------------------- */
- /* open correct framebuffer device                                      */
- 
--/**
-- * Try to find the framebuffer device for a given PCI device 
-- */
--static int
--fbdev_open_pci(struct pci_device *pPci, char **namep)
--{
--    struct fb_fix_screeninfo fix;
--    char filename[256];
--    int fd, i;
--
--    for (i = 0; i < 8; i++) {
--        snprintf(filename, sizeof(filename),
--                 "/sys/bus/pci/devices/%04x:%02x:%02x.%d/graphics/fb%d",
--                 pPci->domain, pPci->bus, pPci->dev, pPci->func, i);
--
--        fd = open(filename, O_RDONLY, 0);
--        if (fd < 0) {
--            snprintf(filename, sizeof(filename),
--                     "/sys/bus/pci/devices/%04x:%02x:%02x.%d/graphics:fb%d",
--                     pPci->domain, pPci->bus, pPci->dev, pPci->func, i);
--            fd = open(filename, O_RDONLY, 0);
--        }
--        if (fd >= 0) {
--            close(fd);
--            snprintf(filename, sizeof(filename), "/dev/fb%d", i);
--
--            fd = open(filename, O_RDWR, 0);
--            if (fd != -1) {
--                if (ioctl(fd, FBIOGET_FSCREENINFO, (void *) &fix) != -1) {
--                    if (namep) {
--                        *namep = xnfalloc(16);
--                        strncpy(*namep, fix.id, 16);
--                    }
--
--                    return fd;
--                }
--                close(fd);
--            }
--        }
--    }
--
--    if (namep)
--        *namep = NULL;
--
--    xf86DrvMsg(-1, X_ERROR, "Unable to find a valid framebuffer device\n");
--    return -1;
--}
--
- static int
- fbdev_open(int scrnIndex, char *dev, char **namep)
- {
-@@ -346,9 +295,6 @@
- {
-     int fd;
- 
--    if (pPci)
--        fd = fbdev_open_pci(pPci, namep);
--    else
-         fd = fbdev_open(-1, device, namep);
- 
-     if (-1 == fd)
-@@ -366,9 +312,6 @@
-     fPtr = FBDEVHWPTR(pScrn);
- 
-     /* open device */
--    if (pPci)
--        fPtr->fd = fbdev_open_pci(pPci, NULL);
--    else
-         fPtr->fd = fbdev_open(pScrn->scrnIndex, device, NULL);
-     if (-1 == fPtr->fd) {
-         xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
+-DIST_SUBDIRS = common ddc i2c x86emu int10 fbdevhw os-support \
++DIST_SUBDIRS = common ddc i2c x86emu int10 android os-support \
+                parser ramdac shadowfb vbe vgahw \
+                loader dixmods dri dri2 exa modes \
+ 	       utils doc man
 diff -aur sources/xorg/git/xorg/xserver/configure.ac.001 sources/xorg/git/xorg/xserver/configure.ac
 --- sources/xorg/git/xorg/xserver/configure.ac.001	2013-02-10 20:04:08.782334611 -0500
 +++ sources/xorg/git/xorg/xserver/configure.ac	2013-02-10 20:08:38.272377974 -0500
@@ -158,3 +85,11 @@ diff -aur sources/xorg/git/xorg/xserver/configure.ac.001 sources/xorg/git/xorg/x
  		if test "x$LNXAPM" = xyes; then
  			XORG_CFLAGS="$XORG_CFLAGS -DXF86PM"
  		fi
+@@ -2257,6 +2257,7 @@
+ hw/xfree86/exa/man/Makefile
+ hw/xfree86/fbdevhw/Makefile
+ hw/xfree86/fbdevhw/man/Makefile
++hw/xfree86/android/Makefile
+ hw/xfree86/i2c/Makefile
+ hw/xfree86/int10/Makefile
+ hw/xfree86/loader/Makefile

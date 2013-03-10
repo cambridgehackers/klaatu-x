@@ -18,7 +18,8 @@ use_lib64 = False
 
 autogenargs = ' --enable-static=no --enable-shared=yes'
 #autogenargs += ' --disable-dri2 --with-driver=dri'
-autogenargs += ' --disable-dri2 --with-driver=fbdev'
+#autogenargs += ' --disable-dri2 --with-driver=fbdev'
+autogenargs += ' --disable-dri2'
 autogenargs += ' --cache-file=' + checkoutroot + '/autoconf-cache'
 # lots of people really like to always look in /var/log, but change if
 # you want the log files out of place
@@ -65,7 +66,7 @@ for tool in ('AR', 'RANLIB', 'STRIP', 'AS', 'OBJDUMP', 'NM'):
 
 module_autogenargs['libGL'] = autogenargs + ' --without-demos --with-dri-drivers="swrast" --disable-glw'
 module_autogenargs['libXt'] = autogenargs + ' --disable-install-makestrs'
-module_autogenargs['xserver'] = autogenargs + ' --enable-debug --disable-pciaccess --disable-glx --disable-aiglx --disable-config-udev --enable-int10-module=no --disable-vgahw --disable-vbe --disable-libdrm --disable-dri --disable-dri2 --disable-xvfb --disable-xnest --disable-xfree86-utils --disable-docs --disable-devel-docs --disable-unit-tests --with-int10=no --enable-dmx=no'
+module_autogenargs['xserver'] = autogenargs + ' --enable-debug --disable-pciaccess --disable-glx --disable-aiglx --disable-config-udev --enable-int10-module=no --disable-vgahw --disable-vbe --disable-libdrm --disable-dri --disable-dri2 --disable-xvfb --disable-xnest --disable-xfree86-utils --disable-docs --disable-devel-docs --disable-unit-tests --with-int10=no --enable-dmx=no --enable-xfbdev=no'
 module_autogenargs['pixman'] = autogenargs + ' --disable-gtk'
 module_autogenargs['hal'] = autogenargs + ' --disable-pci-ids'
 module_autogenargs['libXfont'] = autogenargs + ' --disable-freetype'
