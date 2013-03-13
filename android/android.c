@@ -1,4 +1,5 @@
 /* all driver need this */
+#define DEBUG
 #ifdef HAVE_XORG_CONFIG_H
 #include <xorg-config.h>
 #endif
@@ -6,13 +7,16 @@
 #include <unistd.h>
 #include "xf86.h"
 #include "xf86_OSproc.h"
+#include "xf86Priv.h"
 #include "android.h"
 #include "fbpriv.h"
 #include "globals.h"
 #include <X11/extensions/dpmsconst.h>
 #define PAGE_MASK               (~(getpagesize() - 1))
-static XF86ModuleVersionInfo fbdevHWVersRec = {
-    "fbdevhw",
+//#define DOUT printf
+#define DOUT ErrorF
+static XF86ModuleVersionInfo androidHWVersRec = {
+    "android",
     MODULEVENDORSTRING,
     MODINFOSTRING1,
     MODINFOSTRING2,
@@ -23,16 +27,18 @@ static XF86ModuleVersionInfo fbdevHWVersRec = {
     MOD_CLASS_NONE,
     {0, 0, 0, 0}
 };
-_X_EXPORT XF86ModuleData fbdevhwModuleData = {
-    &fbdevHWVersRec,
-    NULL,
+static MODULESETUPPROTO(androidsetup);
+
+_X_EXPORT XF86ModuleData androidModuleData = {
+    &androidHWVersRec,
+    androidsetup,
     NULL
 };
 /* -------------------------------------------------------------------- */
 /* our private data, and two functions to allocate/free this            */
-#define FBDEVHWPTRLVAL(p) (p)->privates[fbdevHWPrivateIndex].ptr
-#define FBDEVHWPTR(p) ((fbdevHWPtr)(FBDEVHWPTRLVAL(p)))
-static int fbdevHWPrivateIndex = -1;
+#define FBDEVHWPTRLVAL(p) (p)->privates[androidHWPrivateIndex].ptr
+#define FBDEVHWPTR(p) ((androidHWPtr)(FBDEVHWPTRLVAL(p)))
+static int androidHWPrivateIndex = -1;
 typedef struct {
     /* framebuffer device: filename (/dev/fb*), handle, more */
     char *device;
@@ -49,31 +55,143 @@ typedef struct {
     struct fb_var_screeninfo saved_var;
     /* buildin video mode */
     DisplayModeRec buildin;
-} fbdevHWRec, *fbdevHWPtr;
-Bool
-fbdevHWGetRec(ScrnInfoPtr pScrn)
+} androidHWRec, *androidHWPtr;
+static void androidIdentify (int flags)
 {
-    fbdevHWPtr fPtr;
-    if (fbdevHWPrivateIndex < 0)
-        fbdevHWPrivateIndex = xf86AllocateScrnInfoPrivateIndex();
+ErrorF("[%s:%d] %d\n", __FUNCTION__, __LINE__, flags);
+}
+//static Bool androidoProbe 
+//{
+//ErrorF("[%s:%d]\n", __FUNCTION__, __LINE__);
+//return 1;
+//}
+static DisplayModeRec buildin;
+static Bool androidinitp(//SCREEN_INIT_ARGS_DECL)
+ScreenPtr a, int b, char ** c)
+{
+ErrorF("[%s:%d]\n", __FUNCTION__, __LINE__);
+return 1;
+}
+static MonRec monglob;
+static Bool androidoProbe //(DriverPtr           driver,
+                            //int                 entity_num,
+                            //struct pci_device   *device,
+                            //intptr_t            match_data)
+(struct _DriverRec * driver, int flags)
+{
+ErrorF("[%s:%d] %p %x\n", __FUNCTION__, __LINE__, driver, flags);
+int i;
+screenLayoutPtr layout;
+GDevPtr mydevice = NULL;
+	ScrnInfoPtr scrn;
+
+	scrn = xf86AllocateScreen(driver, 0);
+	if (scrn == NULL)
+		return FALSE;
+
+	scrn->driverVersion = 1;
+	scrn->driverName = "android";
+	scrn->name = "android";
+	scrn->driverPrivate = (void *)(1);
+	scrn->Probe = NULL;
+	scrn->modes = &buildin;
+        scrn->ScreenInit = androidinitp;
+        scrn->monitor = &monglob;
+          //xf86MonPtr DDC = (xf86MonPtr) (xf86Screens[i]->monitor->DDC);
+
+ErrorF("[%s:%d]\n", __FUNCTION__, __LINE__);
+#if 1
+    for (i = 0; i < xf86NumScreens; i++) {
+        for (layout = xf86ConfigLayout.screens; layout->screen; layout++) {
+ErrorF("[%s:%d] layout %p screen %p dev %p\n", __FUNCTION__, __LINE__, layout, layout->screen, layout->screen->device);
+            mydevice = layout->screen->device;
+ErrorF("[%s:%d] screen %p\n", __FUNCTION__, __LINE__, mydevice);
+            break;
+        }
+    }
+    int entity_num = xf86ClaimNoSlot(driver, 0, mydevice, 1);
+	if (xf86IsEntitySharable(entity_num))
+		xf86SetEntityShared(entity_num);
+ErrorF("[%s:%d] scrn %x %x\n", __FUNCTION__, __LINE__, scrn, entity_num);
+	xf86AddEntityToScreen(scrn, entity_num);
+#endif
+//ErrorF("[%s:%d] before IC\n", __FUNCTION__, __LINE__);
+	//xf86InitialConfiguration(scrn, TRUE);
+ErrorF("[%s:%d] return\n", __FUNCTION__, __LINE__);
+return 1;
+}
+static const OptionInfoRec *androidAvailableOptions (int chipid, int bustype)
+{
+ErrorF("[%s:%d] %x %x\n", __FUNCTION__, __LINE__, chipid, bustype);
+return NULL;
+}
+static Bool androiddriverfunc(ScrnInfoPtr pScrn,
+                              xorgDriverFuncOp op,
+                              pointer ptr)
+{
+ErrorF("[%s:%d] return\n", __FUNCTION__, __LINE__);
+return 1;
+}
+struct pci_id_match {
+    uint32_t    vendor_id;
+    uint32_t    device_id;
+    uint32_t    subvendor_id;
+    uint32_t    subdevice_id;
+    uint32_t    device_class;
+    uint32_t    device_class_mask;
+    intptr_t    match_data;
+};
+static struct pci_id_match pcimatch[2]; // = { 0};
+
+static DriverRec andriver = {
+    1, //VERSION
+    "android", //name/
+    androidIdentify,
+    androidoProbe,
+    androidAvailableOptions,
+    NULL, //module
+    0, //refcount
+    //androiddriverfunc,
+    //pcimatch,
+    //androidProbe,
+    };
+
+static pointer androidsetup(pointer module, pointer opts, int *errmaj, int *errmin)
+{
+DOUT("[%s:%d] %p %p %p %p\n", __FUNCTION__, __LINE__, module, opts, errmaj, errmin);
+static int initialized;
+if (!initialized)
+xf86AddDriver(&andriver, module, HaveDriverFuncs);
+initialized = 1;
+    return (pointer) 1;
+}
+Bool
+androidHWGetRec(ScrnInfoPtr pScrn)
+{
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    androidHWPtr fPtr;
+    if (androidHWPrivateIndex < 0)
+        androidHWPrivateIndex = xf86AllocateScrnInfoPrivateIndex();
     if (FBDEVHWPTR(pScrn) != NULL)
         return TRUE;
-    fPtr = FBDEVHWPTRLVAL(pScrn) = xnfcalloc(sizeof(fbdevHWRec), 1);
+    fPtr = FBDEVHWPTRLVAL(pScrn) = xnfcalloc(sizeof(androidHWRec), 1);
     return TRUE;
 }
 void
-fbdevHWFreeRec(ScrnInfoPtr pScrn)
+androidHWFreeRec(ScrnInfoPtr pScrn)
 {
-    if (fbdevHWPrivateIndex < 0)
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    if (androidHWPrivateIndex < 0)
         return;
     free(FBDEVHWPTR(pScrn));
     FBDEVHWPTRLVAL(pScrn) = NULL;
 }
 int
-fbdevHWGetFD(ScrnInfoPtr pScrn)
+androidHWGetFD(ScrnInfoPtr pScrn)
 {
-    fbdevHWPtr fPtr;
-    fbdevHWGetRec(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    androidHWPtr fPtr;
+    androidHWGetRec(pScrn);
     fPtr = FBDEVHWPTR(pScrn);
     return fPtr->fd;
 }
@@ -81,9 +199,9 @@ fbdevHWGetFD(ScrnInfoPtr pScrn)
 /* some helpers for printing debug informations                         */
 #if DEBUG
 static void
-print_fbdev_mode(const char *txt, struct fb_var_screeninfo *var)
+print_android_mode(const char *txt, struct fb_var_screeninfo *var)
 {
-    ErrorF("fbdev %s mode:\t%d   %d %d %d %d   %d %d %d %d   %d %d:%d:%d\n",
+    ErrorF("android %s mode:\t%d   %d %d %d %d   %d %d %d %d   %d %d:%d:%d\n",
            txt, var->pixclock,
            var->xres, var->right_margin, var->hsync_len, var->left_margin,
            var->yres, var->lower_margin, var->vsync_len, var->upper_margin,
@@ -102,8 +220,9 @@ print_xfree_mode(const char *txt, DisplayModePtr mode)
 /* -------------------------------------------------------------------- */
 /* Convert timings between the XFree and the Frame Buffer Device        */
 static void
-xfree2fbdev_fblayout(ScrnInfoPtr pScrn, struct fb_var_screeninfo *var)
+xfree2android_fblayout(ScrnInfoPtr pScrn, struct fb_var_screeninfo *var)
 {
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
     var->xres_virtual = pScrn->displayWidth ? pScrn->displayWidth :
         pScrn->virtualX;
     var->yres_virtual = pScrn->virtualY;
@@ -121,8 +240,9 @@ xfree2fbdev_fblayout(ScrnInfoPtr pScrn, struct fb_var_screeninfo *var)
     }
 }
 static void
-xfree2fbdev_timing(DisplayModePtr mode, struct fb_var_screeninfo *var)
+xfree2android_timing(DisplayModePtr mode, struct fb_var_screeninfo *var)
 {
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
     var->xres = mode->HDisplay;
     var->yres = mode->VDisplay;
     if (var->xres_virtual < var->xres)
@@ -154,8 +274,9 @@ xfree2fbdev_timing(DisplayModePtr mode, struct fb_var_screeninfo *var)
         var->vmode = FB_VMODE_NONINTERLACED;
 }
 static Bool
-fbdev_modes_equal(struct fb_var_screeninfo *set, struct fb_var_screeninfo *req)
+android_modes_equal(struct fb_var_screeninfo *set, struct fb_var_screeninfo *req)
 {
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
     return (set->xres_virtual >= req->xres_virtual &&
             set->yres_virtual >= req->yres_virtual &&
             set->bits_per_pixel == req->bits_per_pixel &&
@@ -172,8 +293,9 @@ fbdev_modes_equal(struct fb_var_screeninfo *set, struct fb_var_screeninfo *req)
             set->sync == req->sync && set->vmode == req->vmode);
 }
 static void
-fbdev2xfree_timing(struct fb_var_screeninfo *var, DisplayModePtr mode)
+android2xfree_timing(struct fb_var_screeninfo *var, DisplayModePtr mode)
 {
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
     mode->Clock = var->pixclock ? 1000000000 / var->pixclock : 0;
     mode->HDisplay = var->xres;
     mode->HSyncStart = mode->HDisplay + var->right_margin;
@@ -207,21 +329,23 @@ fbdev2xfree_timing(struct fb_var_screeninfo *var, DisplayModePtr mode)
 }
 /* -------------------------------------------------------------------- */
 Bool
-fbdevHWProbe(struct pci_device *pPci, char *device, char **namep)
+androidHWProbe(struct pci_device *pPci, char *device, char **namep)
 {
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
     return TRUE;
 }
 Bool
-fbdevHWInit(ScrnInfoPtr pScrn, struct pci_device *pPci, char *device)
+androidHWInit(ScrnInfoPtr pScrn, struct pci_device *pPci, char *device)
 {
-    fbdevHWPtr fPtr;
-    fbdevHWGetRec(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    androidHWPtr fPtr;
+    androidHWGetRec(pScrn);
     fPtr = FBDEVHWPTR(pScrn);
     /* get current fb device settings */
     //if (-1 == ioctl(fPtr->fd, FBIOGET_FSCREENINFO, (void *) (&fPtr->fix))) { }
     //if (-1 == ioctl(fPtr->fd, FBIOGET_VSCREENINFO, (void *) (&fPtr->var))) {}
     /* we can use the current settings as "buildin mode" */
-    fbdev2xfree_timing(&fPtr->var, &fPtr->buildin);
+    android2xfree_timing(&fPtr->var, &fPtr->buildin);
     fPtr->buildin.name = (char *)"current";
     fPtr->buildin.next = &fPtr->buildin;
     fPtr->buildin.prev = &fPtr->buildin;
@@ -229,15 +353,17 @@ fbdevHWInit(ScrnInfoPtr pScrn, struct pci_device *pPci, char *device)
     return TRUE;
 }
 char *
-fbdevHWGetName(ScrnInfoPtr pScrn)
+androidHWGetName(ScrnInfoPtr pScrn)
 {
-    fbdevHWPtr fPtr = FBDEVHWPTR(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    androidHWPtr fPtr = FBDEVHWPTR(pScrn);
     return fPtr->fix.id;
 }
 int
-fbdevHWGetDepth(ScrnInfoPtr pScrn, int *fbbpp)
+androidHWGetDepth(ScrnInfoPtr pScrn, int *fbbpp)
 {
-    fbdevHWPtr fPtr = FBDEVHWPTR(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    androidHWPtr fPtr = FBDEVHWPTR(pScrn);
     if (fbbpp)
         *fbbpp = fPtr->var.bits_per_pixel;
     if (fPtr->fix.visual == FB_VISUAL_TRUECOLOR ||
@@ -248,47 +374,51 @@ fbdevHWGetDepth(ScrnInfoPtr pScrn, int *fbbpp)
         return fPtr->var.bits_per_pixel;
 }
 int
-fbdevHWGetLineLength(ScrnInfoPtr pScrn)
+androidHWGetLineLength(ScrnInfoPtr pScrn)
 {
-    fbdevHWPtr fPtr = FBDEVHWPTR(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    androidHWPtr fPtr = FBDEVHWPTR(pScrn);
     if (fPtr->fix.line_length)
         return fPtr->fix.line_length;
     else
         return fPtr->var.xres_virtual * fPtr->var.bits_per_pixel / 8;
 }
 int
-fbdevHWGetType(ScrnInfoPtr pScrn)
+androidHWGetType(ScrnInfoPtr pScrn)
 {
-    fbdevHWPtr fPtr = FBDEVHWPTR(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    androidHWPtr fPtr = FBDEVHWPTR(pScrn);
     return fPtr->fix.type;
 }
 int
-fbdevHWGetVidmem(ScrnInfoPtr pScrn)
+androidHWGetVidmem(ScrnInfoPtr pScrn)
 {
-    fbdevHWPtr fPtr = FBDEVHWPTR(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    androidHWPtr fPtr = FBDEVHWPTR(pScrn);
     return fPtr->fix.smem_len;
 }
 static Bool
-fbdevHWSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode, Bool check)
+androidHWSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode, Bool check)
 {
-    fbdevHWPtr fPtr = FBDEVHWPTR(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    androidHWPtr fPtr = FBDEVHWPTR(pScrn);
     struct fb_var_screeninfo req_var = fPtr->var, set_var;
-    xfree2fbdev_fblayout(pScrn, &req_var);
-    xfree2fbdev_timing(mode, &req_var);
+    xfree2android_fblayout(pScrn, &req_var);
+    xfree2android_timing(mode, &req_var);
 #if DEBUG
     print_xfree_mode("init", mode);
-    print_fbdev_mode("init", &req_var);
+    print_android_mode("init", &req_var);
 #endif
     set_var = req_var;
     if (check)
         set_var.activate = FB_ACTIVATE_TEST;
     //if (0 != ioctl(fPtr->fd, FBIOPUT_VSCREENINFO, (void *) (&set_var))) {}
-    if (!fbdev_modes_equal(&set_var, &req_var)) {
+    if (!android_modes_equal(&set_var, &req_var)) {
         if (!check)
             xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
                        "FBIOPUT_VSCREENINFO succeeded but modified " "mode\n");
 #if DEBUG
-        print_fbdev_mode("returned", &set_var);
+        print_android_mode("returned", &set_var);
 #endif
         return FALSE;
     }
@@ -297,8 +427,9 @@ fbdevHWSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode, Bool check)
     return TRUE;
 }
 void
-fbdevHWSetVideoModes(ScrnInfoPtr pScrn)
+androidHWSetVideoModes(ScrnInfoPtr pScrn)
 {
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
     char **modename;
     DisplayModePtr mode, this, last = pScrn->modes;
     if (NULL == pScrn->display->modes)
@@ -308,7 +439,7 @@ fbdevHWSetVideoModes(ScrnInfoPtr pScrn)
     for (modename = pScrn->display->modes; *modename != NULL; modename++) {
         for (mode = pScrn->monitor->Modes; mode != NULL; mode = mode->next) {
             if (0 == strcmp(mode->name, *modename)) {
-                if (fbdevHWSetMode(pScrn, mode, TRUE))
+                if (androidHWSetMode(pScrn, mode, TRUE))
                     break;
                 xf86DrvMsg(pScrn->scrnIndex, X_INFO,
                            "\tmode \"%s\" test failed\n", *modename);
@@ -340,15 +471,17 @@ fbdevHWSetVideoModes(ScrnInfoPtr pScrn)
     }
 }
 DisplayModePtr
-fbdevHWGetBuildinMode(ScrnInfoPtr pScrn)
+androidHWGetBuildinMode(ScrnInfoPtr pScrn)
 {
-    fbdevHWPtr fPtr = FBDEVHWPTR(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    androidHWPtr fPtr = FBDEVHWPTR(pScrn);
     return &fPtr->buildin;
 }
 void
-fbdevHWUseBuildinMode(ScrnInfoPtr pScrn)
+androidHWUseBuildinMode(ScrnInfoPtr pScrn)
 {
-    fbdevHWPtr fPtr = FBDEVHWPTR(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    androidHWPtr fPtr = FBDEVHWPTR(pScrn);
     pScrn->modes = &fPtr->buildin;
     pScrn->virtualX = pScrn->display->virtualX;
     pScrn->virtualY = pScrn->display->virtualY;
@@ -359,16 +492,18 @@ fbdevHWUseBuildinMode(ScrnInfoPtr pScrn)
 }
 /* -------------------------------------------------------------------- */
 static void
-calculateFbmem_len(fbdevHWPtr fPtr)
+calculateFbmem_len(androidHWPtr fPtr)
 {
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
     fPtr->fboff = (unsigned long) fPtr->fix.smem_start & ~PAGE_MASK;
     fPtr->fbmem_len = (fPtr->fboff + fPtr->fix.smem_len + ~PAGE_MASK) &
         PAGE_MASK;
 }
 void *
-fbdevHWMapVidmem(ScrnInfoPtr pScrn)
+androidHWMapVidmem(ScrnInfoPtr pScrn)
 {
-    fbdevHWPtr fPtr = FBDEVHWPTR(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    androidHWPtr fPtr = FBDEVHWPTR(pScrn);
     if (NULL == fPtr->fbmem) {
         calculateFbmem_len(fPtr);
         //fPtr->fbmem = mmap(NULL, fPtr->fbmem_len, PROT_READ | PROT_WRITE,
@@ -381,15 +516,17 @@ fbdevHWMapVidmem(ScrnInfoPtr pScrn)
     return fPtr->fbmem;
 }
 int
-fbdevHWLinearOffset(ScrnInfoPtr pScrn)
+androidHWLinearOffset(ScrnInfoPtr pScrn)
 {
-    fbdevHWPtr fPtr = FBDEVHWPTR(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    androidHWPtr fPtr = FBDEVHWPTR(pScrn);
     return fPtr->fboff;
 }
 Bool
-fbdevHWUnmapVidmem(ScrnInfoPtr pScrn)
+androidHWUnmapVidmem(ScrnInfoPtr pScrn)
 {
-    //fbdevHWPtr fPtr = FBDEVHWPTR(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    //androidHWPtr fPtr = FBDEVHWPTR(pScrn);
     //if (NULL != fPtr->fbmem) {
         //if (-1 == munmap(fPtr->fbmem, fPtr->fbmem_len)) {}
         //fPtr->fbmem = NULL;
@@ -397,10 +534,11 @@ fbdevHWUnmapVidmem(ScrnInfoPtr pScrn)
     return TRUE;
 }
 void *
-fbdevHWMapMMIO(ScrnInfoPtr pScrn)
+androidHWMapMMIO(ScrnInfoPtr pScrn)
 {
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
     unsigned int mmio_off;
-    fbdevHWPtr fPtr = FBDEVHWPTR(pScrn);
+    androidHWPtr fPtr = FBDEVHWPTR(pScrn);
     if (NULL == fPtr->mmio) {
         /* tell the kernel not to use accels to speed up console scrolling */
         fPtr->var.accel_flags = 0;
@@ -416,9 +554,10 @@ fbdevHWMapMMIO(ScrnInfoPtr pScrn)
     return fPtr->mmio;
 }
 Bool
-fbdevHWUnmapMMIO(ScrnInfoPtr pScrn)
+androidHWUnmapMMIO(ScrnInfoPtr pScrn)
 {
-    //fbdevHWPtr fPtr = FBDEVHWPTR(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    //androidHWPtr fPtr = FBDEVHWPTR(pScrn);
     //if (NULL != fPtr->mmio) {
         //if (-1 == munmap((void *) ((unsigned long) fPtr->mmio & PAGE_MASK), fPtr->mmio_len)) {}
         //fPtr->mmio = NULL;
@@ -428,12 +567,13 @@ fbdevHWUnmapMMIO(ScrnInfoPtr pScrn)
 }
 /* -------------------------------------------------------------------- */
 Bool
-fbdevHWModeInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
+androidHWModeInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
 {
-    fbdevHWPtr fPtr = FBDEVHWPTR(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    androidHWPtr fPtr = FBDEVHWPTR(pScrn);
     pScrn->vtSema = TRUE;
     /* set */
-    if (!fbdevHWSetMode(pScrn, mode, FALSE))
+    if (!androidHWSetMode(pScrn, mode, FALSE))
         return FALSE;
     /* read back */
     //if (0 != ioctl(fPtr->fd, FBIOGET_FSCREENINFO, (void *) (&fPtr->fix))) {}
@@ -458,24 +598,27 @@ fbdevHWModeInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
 /* -------------------------------------------------------------------- */
 /* video mode save/restore                                              */
 void
-fbdevHWSave(ScrnInfoPtr pScrn)
+androidHWSave(ScrnInfoPtr pScrn)
 {
-    //fbdevHWPtr fPtr = FBDEVHWPTR(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    //androidHWPtr fPtr = FBDEVHWPTR(pScrn);
     //if (0 != ioctl(fPtr->fd, FBIOGET_VSCREENINFO, (void *) (&fPtr->saved_var))) {}
 }
 void
-fbdevHWRestore(ScrnInfoPtr pScrn)
+androidHWRestore(ScrnInfoPtr pScrn)
 {
-    //fbdevHWPtr fPtr = FBDEVHWPTR(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    //androidHWPtr fPtr = FBDEVHWPTR(pScrn);
     //if (0 != ioctl(fPtr->fd, FBIOPUT_VSCREENINFO, (void *) (&fPtr->saved_var))) {}
 }
 /* -------------------------------------------------------------------- */
 /* callback for xf86HandleColormaps                                     */
 void
-fbdevHWLoadPalette(ScrnInfoPtr pScrn, int numColors, int *indices,
+androidHWLoadPalette(ScrnInfoPtr pScrn, int numColors, int *indices,
                    LOCO * colors, VisualPtr pVisual)
 {
-    //fbdevHWPtr fPtr = FBDEVHWPTR(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    //androidHWPtr fPtr = FBDEVHWPTR(pScrn);
     struct fb_cmap cmap;
     unsigned short red, green, blue;
     int i;
@@ -495,23 +638,26 @@ fbdevHWLoadPalette(ScrnInfoPtr pScrn, int numColors, int *indices,
 /* -------------------------------------------------------------------- */
 /* these can be hooked directly into ScrnInfoRec                        */
 ModeStatus
-fbdevHWValidMode(ScrnInfoPtr pScrn, DisplayModePtr mode, Bool verbose, int flags)
+androidHWValidMode(ScrnInfoPtr pScrn, DisplayModePtr mode, Bool verbose, int flags)
 {
-    if (!fbdevHWSetMode(pScrn, mode, TRUE))
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    if (!androidHWSetMode(pScrn, mode, TRUE))
         return MODE_BAD;
     return MODE_OK;
 }
 Bool
-fbdevHWSwitchMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
+androidHWSwitchMode(ScrnInfoPtr pScrn, DisplayModePtr mode)
 {
-    if (!fbdevHWSetMode(pScrn, mode, FALSE))
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    if (!androidHWSetMode(pScrn, mode, FALSE))
         return FALSE;
     return TRUE;
 }
 void
-fbdevHWAdjustFrame(ScrnInfoPtr pScrn, int x, int y)
+androidHWAdjustFrame(ScrnInfoPtr pScrn, int x, int y)
 {
-    fbdevHWPtr fPtr = FBDEVHWPTR(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    androidHWPtr fPtr = FBDEVHWPTR(pScrn);
     if (x < 0 || x + fPtr->var.xres > fPtr->var.xres_virtual ||
         y < 0 || y + fPtr->var.yres > fPtr->var.yres_virtual)
         return;
@@ -520,22 +666,25 @@ fbdevHWAdjustFrame(ScrnInfoPtr pScrn, int x, int y)
     //if (-1 == ioctl(fPtr->fd, FBIOPAN_DISPLAY, (void *) &fPtr->var)) {}
 }
 Bool
-fbdevHWEnterVT(ScrnInfoPtr pScrn)
+androidHWEnterVT(ScrnInfoPtr pScrn)
 {
-    if (!fbdevHWModeInit(pScrn, pScrn->currentMode))
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    if (!androidHWModeInit(pScrn, pScrn->currentMode))
         return FALSE;
-    fbdevHWAdjustFrame(pScrn, pScrn->frameX0, pScrn->frameY0);
+    androidHWAdjustFrame(pScrn, pScrn->frameX0, pScrn->frameY0);
     return TRUE;
 }
 void
-fbdevHWLeaveVT(ScrnInfoPtr pScrn)
+androidHWLeaveVT(ScrnInfoPtr pScrn)
 {
-    fbdevHWRestore(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    androidHWRestore(pScrn);
 }
 void
-fbdevHWDPMSSet(ScrnInfoPtr pScrn, int mode, int flags)
+androidHWDPMSSet(ScrnInfoPtr pScrn, int mode, int flags)
 {
-    //fbdevHWPtr fPtr = FBDEVHWPTR(pScrn);
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    //androidHWPtr fPtr = FBDEVHWPTR(pScrn);
     unsigned long fbmode;
     if (!pScrn->vtSema)
         return;
@@ -558,10 +707,11 @@ fbdevHWDPMSSet(ScrnInfoPtr pScrn, int mode, int flags)
     //if (-1 == ioctl(fPtr->fd, FBIOBLANK, (void *) fbmode)) {}
 }
 Bool
-fbdevHWSaveScreen(ScreenPtr pScreen, int mode)
+androidHWSaveScreen(ScreenPtr pScreen, int mode)
 {
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
     ScrnInfoPtr pScrn = xf86ScreenToScrn(pScreen);
-    //fbdevHWPtr fPtr = FBDEVHWPTR(pScrn);
+    //androidHWPtr fPtr = FBDEVHWPTR(pScrn);
     unsigned long unblank;
     if (!pScrn->vtSema)
         return TRUE;
@@ -570,42 +720,50 @@ fbdevHWSaveScreen(ScreenPtr pScreen, int mode)
     return TRUE;
 }
 xf86SwitchModeProc *
-fbdevHWSwitchModeWeak(void)
+androidHWSwitchModeWeak(void)
 {
-    return fbdevHWSwitchMode;
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    return androidHWSwitchMode;
 }
 xf86AdjustFrameProc *
-fbdevHWAdjustFrameWeak(void)
+androidHWAdjustFrameWeak(void)
 {
-    return fbdevHWAdjustFrame;
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    return androidHWAdjustFrame;
 }
 xf86EnterVTProc *
-fbdevHWEnterVTWeak(void)
+androidHWEnterVTWeak(void)
 {
-    return fbdevHWEnterVT;
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    return androidHWEnterVT;
 }
 xf86LeaveVTProc *
-fbdevHWLeaveVTWeak(void)
+androidHWLeaveVTWeak(void)
 {
-    return fbdevHWLeaveVT;
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    return androidHWLeaveVT;
 }
 xf86ValidModeProc *
-fbdevHWValidModeWeak(void)
+androidHWValidModeWeak(void)
 {
-    return fbdevHWValidMode;
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    return androidHWValidMode;
 }
 xf86DPMSSetProc *
-fbdevHWDPMSSetWeak(void)
+androidHWDPMSSetWeak(void)
 {
-    return fbdevHWDPMSSet;
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    return androidHWDPMSSet;
 }
 xf86LoadPaletteProc *
-fbdevHWLoadPaletteWeak(void)
+androidHWLoadPaletteWeak(void)
 {
-    return fbdevHWLoadPalette;
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    return androidHWLoadPalette;
 }
 SaveScreenProcPtr
-fbdevHWSaveScreenWeak(void)
+androidHWSaveScreenWeak(void)
 {
-    return fbdevHWSaveScreen;
+DOUT("[%s:%d]\n", __FUNCTION__, __LINE__);
+    return androidHWSaveScreen;
 }

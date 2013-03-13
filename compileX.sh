@@ -34,10 +34,13 @@ if [ ! -d aroot ] ; then
     popd
 fi
 #now compile X
-PATH=`pwd`/aroot/toolchain/bin:$PATH \
-    DISCIMAGE=`pwd`/out \
-    CROSS_COMPILE=arm-linux- \
-    jhbuild -f $SCRIPT_DIR/crossx.jhbuild update xserver
+if [ ! -e sources/updated ] ; then
+    PATH=`pwd`/aroot/toolchain/bin:$PATH \
+        DISCIMAGE=`pwd`/out \
+        CROSS_COMPILE=arm-linux- \
+        jhbuild -f $SCRIPT_DIR/crossx.jhbuild update xserver
+    touch sources/updated
+fi
 if [ ! -e sources/patched ] ; then
     patch -p0 <$SCRIPT_DIR/cross_android.patch
     touch sources/patched
